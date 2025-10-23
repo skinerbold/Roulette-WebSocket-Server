@@ -1,0 +1,22 @@
+{
+  "name": "roulette-websocket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for Roulette Analyzer - Real-time roulette data streaming",
+  "main": "websocket-server.js",
+  "scripts": {
+    "start": "node websocket-server.js"
+  },
+  "keywords": [
+    "websocket",
+    "roulette",
+    "real-time"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
