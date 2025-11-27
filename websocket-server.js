@@ -9,9 +9,10 @@ const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-const wss = new WebSocket.Server({ port: 3000 });
+const PORT = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: PORT });
 
-console.log('🎰 Servidor WebSocket de Roleta rodando em ws://localhost:3000');
+console.log(`🎰 Servidor WebSocket de Roleta rodando na porta ${PORT}`);
 
 // ============================================
 // CARREGAR CONFIGURAÇÃO DA API
