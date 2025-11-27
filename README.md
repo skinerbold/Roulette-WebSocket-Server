@@ -1,24 +1,43 @@
 # 🎰 Roulette WebSocket Server
 
-WebSocket server para o **Roulette Analyzer** - Transmite dados de roletas em tempo real.
+WebSocket server para o **Roulette Analyzer** - Transmite dados de roletas em tempo real com integração à API Fly.io.
 
 ## 🚀 Deploy no Railway
 
 Este servidor está configurado para rodar no [Railway.app](https://railway.app).
 
+### ⚙️ Variáveis de Ambiente Obrigatórias
+
+Configure no Railway Dashboard > Variables:
+
+```env
+FLY_API_URL=https://roulette-history-api.fly.dev
+PORT=3000
+```
+
+**Opcional (para cache persistente):**
+```env
+SUPABASE_URL=https://snrzuqjuvqkisrrgbhmg.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<sua-service-role-key>
+```
+
 ### Configuração
 
-O servidor se conecta automaticamente à API de roletas em:
-- **API WebSocket**: `ws://177.93.108.140:8777`
-- **Porta**: Definida pela variável `PORT` do Railway (automática)
+O servidor usa múltiplas fontes de dados:
+- **API WebSocket Primária**: `ws://177.93.108.140:8777` (dados em tempo real)
+- **API Histórico Fly.io**: `https://roulette-history-api.fly.dev` (histórico completo até 500 números)
+- **Supabase**: Cache persistente (opcional)
+- **Porta**: Definida pela variável `PORT` do Railway
 
 ### Recursos
 
-- ✅ Conexão com API real de 60+ roletas
+- ✅ Conexão com API real de 60+ roletas (tempo real)
+- ✅ Integração com API Fly.io para histórico completo (até 500 números)
+- ✅ Cache persistente no Supabase
 - ✅ Transmissão de dados em tempo real
 - ✅ Detecção automática de novas roletas
 - ✅ Broadcast para múltiplos clientes
-- ✅ Sem simulação de dados (100% real)
+- ✅ Fallback inteligente: WebSocket → Fly.io API → Supabase
 
 ### Endpoints
 

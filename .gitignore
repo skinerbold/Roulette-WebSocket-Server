@@ -10,6 +10,9 @@ npm-debug.log*
 .env.local
 .env*.local
 
+# API Configuration (sensitive)
+api-config.js
+
 # OS files
 .DS_Store
 Thumbs.db
