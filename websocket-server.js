@@ -149,10 +149,13 @@ async function persistSingleNumber(rouletteId, number, timestamp) {
     }
     
     try {
+        // Converter para Unix timestamp em milissegundos (bigint)
+        const timestampMs = typeof timestamp === 'number' ? timestamp : new Date(timestamp).getTime();
+        
         const { data, error } = await supabaseAdmin.rpc('update_roulette_history', {
             p_roulette_id: rouletteId,
             p_number: number,
-            p_timestamp: new Date(timestamp).toISOString()
+            p_timestamp: timestampMs
         });
         
         if (error) {
