@@ -212,12 +212,12 @@ async function hydrateFromStore(rouletteId) {
 
     const promise = (async () => {
         try {
-            // CORRIGIDO: Usar nomes corretos das colunas (number, timestamp, position)
+            // ATUALIZADO: Sem coluna position - usar timestamp DESC (mais recente primeiro)
             const { data, error } = await supabaseAdmin
                 .from('roulette_history')
-                .select('number, timestamp, position')
+                .select('number, timestamp')
                 .eq('roulette_id', rouletteId)
-                .order('position', { ascending: true }) // position 1 = mais recente
+                .order('timestamp', { ascending: false }) // mais recente primeiro
                 .limit(MAX_CACHE_LENGTH);
 
             if (error) {
@@ -227,9 +227,10 @@ async function hydrateFromStore(rouletteId) {
 
             if (Array.isArray(data) && data.length) {
                 // Mapear para formato interno (value, timestamp)
+                // timestamp já está em BIGINT (milissegundos) no banco
                 const entries = data.map(row => ({
-                    value: row.number,  // CORRIGIDO: era row.value
-                    timestamp: new Date(row.timestamp).getTime()
+                    value: row.number,
+                    timestamp: typeof row.timestamp === 'number' ? row.timestamp : new Date(row.timestamp).getTime()
                 }));
                 inMemoryHistory.set(rouletteId, entries);
                 rouletteMeta.set(rouletteId, { lastTimestamp: entries[0].timestamp });
@@ -249,18 +250,13 @@ async function fetchOlderFromStore(rouletteId, alreadyCached, limit) {
         return [];
     }
     try {
-        // CORRIGIDO: Usar nomes corretos das colunas e ordenar por position
-        // position já começa em alreadyCached + 1
-        const startPosition = alreadyCached + 1;
-        const endPosition = alreadyCached + limit;
-        
+        // ATUALIZADO: Sem coluna position - usar offset/limit com ordenação por timestamp
         const { data, error } = await supabaseAdmin
             .from('roulette_history')
-            .select('number, timestamp, position')
+            .select('number, timestamp')
             .eq('roulette_id', rouletteId)
-            .gte('position', startPosition)
-            .lte('position', endPosition)
-            .order('position', { ascending: true });
+            .order('timestamp', { ascending: false }) // mais recente primeiro
+            .range(alreadyCached, alreadyCached + limit - 1);
 
         if (error) {
             console.error('❌ Erro ao expandir histórico persistido:', error.message);
@@ -268,9 +264,10 @@ async function fetchOlderFromStore(rouletteId, alreadyCached, limit) {
         }
 
         // Mapear para formato interno
+        // timestamp já está em BIGINT (milissegundos) no banco
         return data.map(row => ({ 
-            value: row.number,  // CORRIGIDO: era row.value
-            timestamp: new Date(row.timestamp).getTime() 
+            value: row.number,
+            timestamp: typeof row.timestamp === 'number' ? row.timestamp : new Date(row.timestamp).getTime()
         }));
     } catch (err) {
         console.error('❌ Exceção ao buscar histórico adicional:', err);
