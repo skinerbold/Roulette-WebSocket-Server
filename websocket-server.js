@@ -198,6 +198,14 @@ async function hydrateFromStore(rouletteId) {
         return;
     }
 
+    // 🔧 FIX: Não hidratar se já temos dados em memória!
+    // Os dados em memória são a fonte da verdade durante a execução
+    const existingHistory = inMemoryHistory.get(rouletteId);
+    if (existingHistory && existingHistory.length > 0) {
+        console.log(`⏭️ Cache de ${rouletteId} já tem ${existingHistory.length} números em memória, não sobrescrevendo.`);
+        return;
+    }
+
     if (apiHydrationPromises.has(rouletteId)) {
         return apiHydrationPromises.get(rouletteId);
     }
