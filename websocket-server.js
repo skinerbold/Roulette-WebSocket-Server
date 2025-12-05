@@ -279,28 +279,43 @@ async function fetchOlderFromStore(rouletteId, alreadyCached, limit) {
 // CONEXÃO COM WEBSOCKET DA API REAL
 // ============================================
 
+let apiConnectionStatus = 'disconnected';
+let lastApiMessageTime = null;
+let apiMessageCount = 0;
+
 function connectToAPIWebSocket() {
     const wsUrl = API_CONFIG.websocketUrl || 'ws://177.93.108.140:8777';
 
     console.log(`🔌 Conectando ao WebSocket da API: ${wsUrl}`);
+    apiConnectionStatus = 'connecting';
 
     try {
         apiWebSocket = new WebSocket(wsUrl);
 
         apiWebSocket.on('open', () => {
             console.log('✅ Conectado ao WebSocket da API!');
+            apiConnectionStatus = 'connected';
             reconnectAttempts = 0;
 
             try {
                 apiWebSocket.send(JSON.stringify({ type: 'get_roulettes', action: 'list_tables' }));
+                console.log('📤 Solicitação de lista de roletas enviada para API');
             } catch (error) {
                 console.error('Erro ao solicitar roletas:', error);
             }
         });
 
         apiWebSocket.on('message', async raw => {
+            lastApiMessageTime = Date.now();
+            apiMessageCount++;
+            
             try {
                 const message = JSON.parse(raw.toString());
+
+                // Log periódico de status
+                if (apiMessageCount % 100 === 0) {
+                    console.log(`📊 API Status: ${apiMessageCount} mensagens recebidas, última: ${new Date(lastApiMessageTime).toISOString()}`);
+                }
 
                 if (API_CONFIG.verbose) {
                     console.log('📨 Mensagem da API:', message);
@@ -308,6 +323,11 @@ function connectToAPIWebSocket() {
 
                 if (message.game && message.game_type === 'roleta' && Array.isArray(message.results)) {
                     await processApiHistory(message.game, message.results);
+                } else {
+                    // Log de mensagens não processadas (para debug)
+                    if (apiMessageCount <= 10) {
+                        console.log(`📨 Mensagem API #${apiMessageCount}:`, JSON.stringify(message).substring(0, 200));
+                    }
                 }
             } catch (error) {
                 if (API_CONFIG.verbose) {
@@ -318,10 +338,12 @@ function connectToAPIWebSocket() {
 
         apiWebSocket.on('error', error => {
             console.error('❌ Erro no WebSocket da API:', error.message);
+            apiConnectionStatus = 'error';
         });
 
         apiWebSocket.on('close', (code, reason) => {
             console.log(`⚠️ WebSocket da API fechado. Código: ${code}, Motivo: ${reason}`);
+            apiConnectionStatus = 'disconnected';
 
             if (API_CONFIG.reconnect && reconnectAttempts < API_CONFIG.maxReconnectAttempts) {
                 reconnectAttempts += 1;
@@ -597,6 +619,20 @@ async function handleClientMessage(ws, message) {
 
         case 'ping':
             ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+            break;
+
+        case 'status':
+            // Retorna status do servidor para diagnóstico
+            ws.send(JSON.stringify({
+                type: 'status',
+                apiConnection: apiConnectionStatus,
+                lastApiMessage: lastApiMessageTime ? new Date(lastApiMessageTime).toISOString() : null,
+                apiMessageCount: apiMessageCount,
+                roulettesCount: availableRoulettes.size,
+                clientsConnected: wss.clients.size,
+                uptime: process.uptime(),
+                timestamp: Date.now()
+            }));
             break;
 
         default:
