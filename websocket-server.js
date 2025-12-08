@@ -420,12 +420,22 @@ function connectToAPIWebSocket() {
             lastApiMessageTime = Date.now();
             apiMessageCount++;
             
+            // 🔥 LOG AGRESSIVO: Sempre logar as primeiras 20 mensagens
+            if (apiMessageCount <= 20) {
+                console.log(`\n🔥 API MENSAGEM #${apiMessageCount}:`);
+                console.log(`   📏 Tamanho: ${raw.length} bytes`);
+                console.log(`   📄 Preview: ${raw.toString().substring(0, 300)}`);
+            }
+            
             try {
                 const message = JSON.parse(raw.toString());
 
                 // Log periódico de status
                 if (apiMessageCount % 100 === 0) {
-                    console.log(`📊 API Status: ${apiMessageCount} mensagens recebidas, última: ${new Date(lastApiMessageTime).toISOString()}`);
+                    console.log(`\n📊 API Status Periódico:`);
+                    console.log(`   📨 Total mensagens: ${apiMessageCount}`);
+                    console.log(`   ⏰ Última: ${new Date(lastApiMessageTime).toLocaleTimeString('pt-BR')}`);
+                    console.log(`   🎰 Roletas: ${availableRoulettes.size}`);
                 }
 
                 if (API_CONFIG.verbose) {
@@ -433,16 +443,17 @@ function connectToAPIWebSocket() {
                 }
 
                 if (message.game && message.game_type === 'roleta' && Array.isArray(message.results)) {
+                    console.log(`🎲 [API] Processando ${message.game}: ${message.results.length} números`);
                     await processApiHistory(message.game, message.results);
                 } else {
                     // Log de mensagens não processadas (para debug)
                     if (apiMessageCount <= 10) {
-                        console.log(`📨 Mensagem API #${apiMessageCount}:`, JSON.stringify(message).substring(0, 200));
+                        console.log(`⚠️ Mensagem API não é roleta:`, JSON.stringify(message).substring(0, 200));
                     }
                 }
             } catch (error) {
-                if (API_CONFIG.verbose) {
-                    console.log('📨 Mensagem da API (não-JSON ou inválida):', raw.toString().substring(0, 100));
+                if (apiMessageCount <= 10) {
+                    console.log('⚠️ Mensagem API não é JSON:', raw.toString().substring(0, 100));
                 }
             }
         });
@@ -613,15 +624,26 @@ async function fetchHistoryFromAPI(rouletteName, limit = DEFAULT_HISTORY_LIMIT) 
 }
 
 async function initializeFromAPI() {
-    console.log('🔄 Inicializando conexão com WebSocket da API...');
+    console.log('\n🚀🚀🚀 ============ INICIALIZANDO SERVIDOR ============');
+    console.log('📡 Configuração API:');
+    console.log(`   URL WebSocket: ${API_CONFIG.websocketUrl || 'ws://177.93.108.140:8777'}`);
+    console.log(`   Base URL HTTP: ${API_CONFIG.baseUrl || 'N/A'}`);
+    console.log(`   Verbose: ${API_CONFIG.verbose || false}`);
+    console.log('🔄 Conectando ao WebSocket da API externa...\n');
 
     try {
         connectToAPIWebSocket();
 
+        console.log('⏳ Aguardando 2 segundos para estabilizar conexão...');
         await new Promise(resolve => setTimeout(resolve, 2000));
 
+        console.log(`\n📊 Status após 2 segundos:`);
+        console.log(`   🎰 Roletas descobertas: ${availableRoulettes.size}`);
+        console.log(`   📡 Status API: ${apiConnectionStatus}`);
+        console.log(`   📨 Mensagens da API: ${apiMessageCount}`);
+        
         if (!availableRoulettes.size && API_CONFIG.baseUrl) {
-            console.log('⚠️ Tentando buscar roletas via HTTP como fallback...');
+            console.log('\n⚠️ Nenhuma roleta descoberta via WebSocket - tentando HTTP fallback...');
             const apiRoulettes = await fetchRoulettesFromAPI();
 
             apiRoulettes.forEach(roulette => registerRoulette(roulette));
@@ -632,10 +654,17 @@ async function initializeFromAPI() {
             }
         }
 
-        console.log('✅ Inicialização completa - Conectado à API real');
+        console.log('\n✅ ============ INICIALIZAÇÃO COMPLETA ============');
+        console.log(`   🎰 Roletas disponíveis: ${availableRoulettes.size}`);
+        console.log(`   📡 Status API: ${apiConnectionStatus}`);
+        console.log(`   🔗 ReadyState: ${apiWebSocket ? apiWebSocket.readyState : 'null'}`);
+        console.log('=================================================\n');
     } catch (error) {
-        console.error('❌ Erro na inicialização:', error.message);
-        console.error('Continuando com conexão WebSocket...');
+        console.error('\n❌ ============ ERRO NA INICIALIZAÇÃO ============');
+        console.error('   Mensagem:', error.message);
+        console.error('   Stack:', error.stack);
+        console.error('   Continuando com conexão WebSocket...');
+        console.error('=================================================\n');
     }
 }
 
