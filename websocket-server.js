@@ -76,8 +76,7 @@ let reconnectAttempts = 0;
 
 const ALLOWED_ROULETTES = {
   'Playtech': [
-    'mega fire blaze roulette live',
-    'roleta brasileira'
+    'mega fire blaze roulette live'
   ],
   'Evolution Gaming': [
     'lightning',
@@ -96,11 +95,6 @@ const ALLOWED_ROULETTES = {
     'roleta brasileira pragmatic',
     'pragmatic',
     'power up'
-  ],
-  'Ezugi': [
-    'ruby',
-    'rapida',
-    'azure'
   ]
 };
 
