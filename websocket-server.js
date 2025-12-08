@@ -187,13 +187,11 @@ function registerRoulette(rouletteIdRaw) {
 // PERSISTÊNCIA SUPABASE
 // ============================================
 
-// Cache para rastrear último número persistido por roleta (evita duplicatas)
-const lastPersistedNumber = new Map(); // rouletteId -> { number, timestamp }
-
 /**
  * Persiste UM ÚNICO número usando a função RPC update_roulette_history
  * Esta função já implementa a lógica de shift de posições (1-500)
  * 🎯 APENAS ROLETAS PERMITIDAS são salvas no banco
+ * ⚠️ NÚMEROS DUPLICADOS CONSECUTIVOS SÃO PERMITIDOS - roleta pode soltar mesmo número seguido
  */
 async function persistSingleNumber(rouletteId, number, timestamp) {
     if (!supabaseAdmin) {
@@ -203,14 +201,6 @@ async function persistSingleNumber(rouletteId, number, timestamp) {
     // 🎯 FILTRO: Verificar se roleta está na lista permitida
     if (!isAllowedRoulette(rouletteId)) {
         // Silenciosamente ignorar - não logar para evitar spam
-        return false;
-    }
-    
-    // Verificar se já persistiu este número recentemente (evita duplicatas)
-    const lastPersisted = lastPersistedNumber.get(rouletteId);
-    if (lastPersisted && lastPersisted.number === number && 
-        Math.abs(lastPersisted.timestamp - timestamp) < 5000) {
-        console.log(`⏭️ Número ${number} já persistido recentemente para ${rouletteId}, ignorando`);
         return false;
     }
     
@@ -228,9 +218,6 @@ async function persistSingleNumber(rouletteId, number, timestamp) {
             console.error(`❌ Erro ao persistir número ${number} para ${rouletteId}:`, error.message);
             return false;
         }
-        
-        // Atualizar cache de último número persistido
-        lastPersistedNumber.set(rouletteId, { number, timestamp });
         
         console.log(`💾 Número ${number} persistido para ${rouletteId} via RPC`);
         return true;
