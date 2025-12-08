@@ -69,6 +69,63 @@ const apiHydrationPromises = new Map(); // evita race conditions
 let apiWebSocket = null;
 let reconnectAttempts = 0;
 
+// ============================================
+// LISTA DE ROLETAS PERMITIDAS (mesma do frontend)
+// Apenas estas roletas terão números salvos no banco de dados
+// ============================================
+
+const ALLOWED_ROULETTES = {
+  'Playtech': [
+    'mega fire blaze roulette live',
+    'roleta brasileira'
+  ],
+  'Evolution Gaming': [
+    'lightning',
+    'xxxtreme',
+    'immersive',
+    'auto-roulette',
+    'vip roulette',
+    'speed',
+    'roulette macao',
+    'ao vivo',
+    'relampago'
+  ],
+  'Pragmatic Play': [
+    'mega roulette',
+    'auto mega',
+    'roleta brasileira pragmatic',
+    'pragmatic',
+    'power up'
+  ],
+  'Ezugi': [
+    'ruby',
+    'rapida',
+    'azure'
+  ]
+};
+
+// Normalizar nome da roleta para comparação
+function normalizeRouletteName(name) {
+  return (name || '').toLowerCase().trim();
+}
+
+// Verificar se roleta está na lista permitida
+function isAllowedRoulette(rouletteId) {
+  const normalized = normalizeRouletteName(rouletteId);
+  
+  // Buscar em todos os provedores
+  for (const provider in ALLOWED_ROULETTES) {
+    const allowedList = ALLOWED_ROULETTES[provider];
+    for (const allowed of allowedList) {
+      if (normalized.includes(allowed.toLowerCase())) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
 // Normalização centralizada garante consistência entre cache, storage e clientes.
 function normalizeRouletteId(raw) {
     return (raw || '').trim().toLowerCase();
@@ -136,9 +193,16 @@ const lastPersistedNumber = new Map(); // rouletteId -> { number, timestamp }
 /**
  * Persiste UM ÚNICO número usando a função RPC update_roulette_history
  * Esta função já implementa a lógica de shift de posições (1-500)
+ * 🎯 APENAS ROLETAS PERMITIDAS são salvas no banco
  */
 async function persistSingleNumber(rouletteId, number, timestamp) {
     if (!supabaseAdmin) {
+        return false;
+    }
+    
+    // 🎯 FILTRO: Verificar se roleta está na lista permitida
+    if (!isAllowedRoulette(rouletteId)) {
+        // Silenciosamente ignorar - não logar para evitar spam
         return false;
     }
     
@@ -282,6 +346,49 @@ async function fetchOlderFromStore(rouletteId, alreadyCached, limit) {
 let apiConnectionStatus = 'disconnected';
 let lastApiMessageTime = null;
 let apiMessageCount = 0;
+let apiHealthCheckInterval = null;
+
+// Verificar saúde da conexão da API a cada 30 segundos
+function startApiHealthCheck() {
+    if (apiHealthCheckInterval) {
+        clearInterval(apiHealthCheckInterval);
+    }
+    
+    apiHealthCheckInterval = setInterval(() => {
+        const now = Date.now();
+        const timeSinceLastMessage = lastApiMessageTime ? now - lastApiMessageTime : null;
+        const readyState = apiWebSocket ? apiWebSocket.readyState : 'null';
+        const readyStateText = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'][readyState] || readyState;
+        
+        console.log(`\n🏥 ============ API HEALTH CHECK ============`);
+        console.log(`   📡 Status: ${apiConnectionStatus}`);
+        console.log(`   🔗 ReadyState: ${readyStateText} (${readyState})`);
+        console.log(`   📨 Mensagens recebidas: ${apiMessageCount}`);
+        console.log(`   ⏰ Última mensagem: ${timeSinceLastMessage ? Math.floor(timeSinceLastMessage / 1000) + 's atrás' : 'NUNCA'}`);
+        console.log(`   🎰 Roletas conhecidas: ${availableRoulettes.size}`);
+        console.log(`   👥 Clientes conectados: ${wss.clients.size}`);
+        console.log(`   🧮 Tentativas de reconexão: ${reconnectAttempts}`);
+        
+        // Se passou mais de 2 minutos sem mensagens e está "conectado", reconectar
+        if (apiConnectionStatus === 'connected' && timeSinceLastMessage && timeSinceLastMessage > 120000) {
+            console.warn('⚠️⚠️⚠️ API TRAVADA: 2+ minutos sem mensagens - FORÇANDO RECONEXÃO!');
+            if (apiWebSocket) {
+                try {
+                    apiWebSocket.close();
+                } catch (e) {
+                    console.error('Erro ao fechar WS:', e);
+                }
+            }
+            setTimeout(() => connectToAPIWebSocket(), 1000);
+        }
+        
+        // Se está OPEN mas não conectado no status, corrigir
+        if (readyState === 1 && apiConnectionStatus !== 'connected') {
+            console.warn('⚠️ ReadyState é OPEN mas status não é connected - corrigindo...');
+            apiConnectionStatus = 'connected';
+        }
+    }, 30000); // A cada 30 segundos
+}
 
 function connectToAPIWebSocket() {
     const wsUrl = API_CONFIG.websocketUrl || 'ws://177.93.108.140:8777';
@@ -296,6 +403,10 @@ function connectToAPIWebSocket() {
             console.log('✅ Conectado ao WebSocket da API!');
             apiConnectionStatus = 'connected';
             reconnectAttempts = 0;
+            lastApiMessageTime = Date.now();
+
+            // Iniciar health check
+            startApiHealthCheck();
 
             try {
                 apiWebSocket.send(JSON.stringify({ type: 'get_roulettes', action: 'list_tables' }));
@@ -614,6 +725,21 @@ async function handleClientMessage(ws, message) {
 
             const history = (inMemoryHistory.get(rouletteId) || []).slice(0, limit);
             ws.send(JSON.stringify(buildHistoryPayload(rouletteId, history)));
+            break;
+        }
+
+        case 'get_all_history': {
+            // Enviar histórico de TODAS as roletas conhecidas
+            console.log(`📤 Cliente solicitou histórico de todas as roletas (${availableRoulettes.size} roletas)`);
+            
+            for (const rouletteId of availableRoulettes.values()) {
+                await hydrateFromStore(rouletteId);
+                const history = (inMemoryHistory.get(rouletteId) || []).slice(0, DEFAULT_HISTORY_LIMIT);
+                
+                if (history.length > 0) {
+                    ws.send(JSON.stringify(buildHistoryPayload(rouletteId, history)));
+                }
+            }
             break;
         }
 
