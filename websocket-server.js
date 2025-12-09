@@ -85,6 +85,13 @@ const ALLOWED_ROULETTES = {
     'spain',
     'auto-roulette',
     'vip'
+  ],
+  'Pragmatic Play': [
+    'mega roulette',
+    'auto mega',
+    'roleta brasileira pragmatic',
+    'pragmatic',
+    'power up'
   ]
 };
 
