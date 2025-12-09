@@ -91,7 +91,8 @@ const ALLOWED_ROULETTES = {
     'auto mega',
     'roleta brasileira pragmatic',
     'pragmatic',
-    'power up'
+    'power up',
+    'speed'
   ]
 };
 
