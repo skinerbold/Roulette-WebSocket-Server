@@ -79,22 +79,12 @@ const ALLOWED_ROULETTES = {
     'mega fire blaze roulette live'
   ],
   'Evolution Gaming': [
+    'speed',
     'lightning',
     'xxxtreme',
-    'immersive',
+    'spain',
     'auto-roulette',
-    'vip roulette',
-    'speed',
-    'roulette macao',
-    'ao vivo',
-    'relampago'
-  ],
-  'Pragmatic Play': [
-    'mega roulette',
-    'auto mega',
-    'roleta brasileira pragmatic',
-    'pragmatic',
-    'power up'
+    'vip'
   ]
 };
 
